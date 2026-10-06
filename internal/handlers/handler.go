@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,11 +8,18 @@ import (
 	"strconv"
 
 	"github.com/botanikn/go-server/internal/entities"
-	"github.com/botanikn/go-server/internal/storage"
+	"github.com/botanikn/go-server/internal/models"
+	"github.com/botanikn/go-server/internal/views"
 )
 
 type Handler struct {
-	Storage *storage.Storage
+	noteService models.NoteService
+}
+
+func NewHandler(noteService models.NoteService) Handler {
+	return Handler{
+		noteService: noteService,
+	}
 }
 
 func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
@@ -44,29 +50,47 @@ func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleNotes(w http.ResponseWriter, r *http.Request) {
-	query := "SELECT * FROM notes"
-	rows, err := h.Storage.Connection.Query(context.Background(), query)
+
+	result, err := h.noteService.GetAllNotes()
+
 	if err != nil {
-		http.Error(w, "Failed to fetch notes", http.StatusInternalServerError)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 
-	notes := []entities.Note{}
+	formatedResult, err := views.FormatJson(result)
 
-	for rows.Next() {
-		var note entities.Note
-		if err := rows.Scan(&note.ID, &note.Title, &note.Content); err != nil {
-			http.Error(w, "Failed to scan note", http.StatusInternalServerError)
-			return
-		}
-		notes = append(notes, note)
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", formatedResult.ContentType)
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(notes); err != nil {
-		http.Error(w, "Failed to encode notes", http.StatusInternalServerError)
+
+	w.Write(formatedResult.Body)
+}
+
+func (h *Handler) HandleNotesXml(w http.ResponseWriter, r *http.Request) {
+
+	result, err := h.noteService.GetAllNotes()
+
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
 	}
+
+	formatedResult, err := views.FormatXml(result)
+
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", formatedResult.ContentType)
+	w.WriteHeader(http.StatusOK)
+
+	w.Write(formatedResult.Body)
 }
 
 func (h *Handler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) {
@@ -76,21 +100,24 @@ func (h *Handler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "SELECT * FROM notes WHERE id = $1"
+	result, err := h.noteService.GetNoteById(id)
 
-	row := h.Storage.Connection.QueryRow(context.Background(), query, id)
-
-	var note entities.Note
-	if err := row.Scan(&note.ID, &note.Title, &note.Content); err != nil {
-		http.Error(w, "Note not found", http.StatusNotFound)
+	if err != nil {
+		http.Error(w, "Invalid note ID", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(note); err != nil {
-		http.Error(w, "Failed to encode note", http.StatusInternalServerError)
+	formatedResult, err := views.FormatJson(result)
+
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
 	}
+
+	w.Header().Set("Content-Type", formatedResult.ContentType)
+	w.WriteHeader(http.StatusOK)
+
+	w.Write(formatedResult.Body)
 
 }
 
@@ -102,11 +129,10 @@ func (h *Handler) HandleCreateNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "INSERT INTO notes (title, content) VALUES ($1, $2)"
-	_, err := h.Storage.Connection.Exec(context.Background(), query, note.Title, note.Content)
+	err := h.noteService.CreateNote(note)
 
 	if err != nil {
-		http.Error(w, "Failed to create note", http.StatusInternalServerError)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
 

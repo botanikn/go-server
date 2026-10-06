@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/botanikn/go-server/internal/handlers"
+	"github.com/botanikn/go-server/internal/models"
 	"github.com/botanikn/go-server/internal/storage"
 )
 
@@ -15,11 +16,13 @@ func RegisterRoutes() *http.ServeMux {
 	if err != nil {
 		log.Fatalf("Failed to connect to the database: %v", err)
 	}
-	handler := &handlers.Handler{
-		Storage: storage,
-	}
+
+	noteService := models.NewNoteService(storage)
+	handler := handlers.NewHandler(noteService)
+
 	mux.HandleFunc("POST /health", handler.HandleHealth)
 	mux.HandleFunc("GET /notes", handler.HandleNotes)
+	mux.HandleFunc("GET /notesXml", handler.HandleNotesXml)
 	mux.HandleFunc("POST /notes", handler.HandleCreateNotes)
 	mux.HandleFunc("GET /notes/{id}", handler.HandleGetNoteByID)
 
