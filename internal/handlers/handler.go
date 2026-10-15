@@ -1,13 +1,11 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 
-	"github.com/botanikn/go-server/internal/entities"
 	"github.com/botanikn/go-server/internal/models"
 	"github.com/botanikn/go-server/internal/views"
 )
@@ -100,7 +98,11 @@ func (h *Handler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.noteService.GetNoteById(id)
+	form := models.FindNoteByIdForm{
+		Id: id,
+	}
+
+	result, err := h.noteService.GetNoteById(form)
 
 	if err != nil {
 		http.Error(w, "Invalid note ID", http.StatusInternalServerError)
@@ -121,21 +123,21 @@ func (h *Handler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (h *Handler) HandleCreateNotes(w http.ResponseWriter, r *http.Request) {
-	var note entities.Note
+// func (h *Handler) HandleCreateNotes(w http.ResponseWriter, r *http.Request) {
+// 	var note entities.Note
 
-	if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
-		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
-		return
-	}
+// 	if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
+// 		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+// 		return
+// 	}
 
-	err := h.noteService.CreateNote(note)
+// 	err := h.noteService.CreateNote(note)
 
-	if err != nil {
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
-		return
-	}
+// 	if err != nil {
+// 		http.Error(w, "Internal Error", http.StatusInternalServerError)
+// 		return
+// 	}
 
-	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "Note created")
-}
+// 	w.WriteHeader(http.StatusCreated)
+// 	fmt.Fprintf(w, "Note created")
+// }
