@@ -1,4 +1,4 @@
-package models
+package service
 
 import (
 	"github.com/botanikn/go-server/internal/entities"
@@ -7,6 +7,7 @@ import (
 type NoteRepositoryInterface interface {
 	GetNoteRepository(id int) (entities.Note, error)
 	FindAllNotes() ([]entities.Note, error)
+	CreateNote(note entities.Note) error
 }
 
 type FindNoteByIdForm struct {
@@ -38,13 +39,6 @@ func (n *NoteService) GetNoteById(form FindNoteByIdForm) (entities.Note, error) 
 	return result, err
 }
 
-// func (n *NoteService) CreateNote(note entities.Note) error {
-// 	query := "INSERT INTO notes (title, content) VALUES ($1, $2)"
-// 	_, err := n.storage.Connection.Exec(context.Background(), query, note.Title, note.Content)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
+func (n *NoteService) CreateNote(note entities.Note) error {
+	return n.rep.CreateNote(note)
+}

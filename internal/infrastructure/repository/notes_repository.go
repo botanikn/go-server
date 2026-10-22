@@ -1,4 +1,4 @@
-package dataaccess
+package repository
 
 import (
 	"context"
@@ -46,4 +46,15 @@ func (n *NotesRepository) FindAllNotes() ([]entities.Note, error) {
 	}
 
 	return notes, nil
+}
+
+func (n *NotesRepository) CreateNote(note entities.Note) error {
+	query := "INSERT INTO notes (title, content) VALUES ($1, $2)"
+	_, err := n.storage.Connection.Exec(context.Background(), query, note.Title, note.Content)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

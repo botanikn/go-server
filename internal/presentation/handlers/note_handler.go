@@ -1,26 +1,28 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 
-	"github.com/botanikn/go-server/internal/models"
-	"github.com/botanikn/go-server/internal/views"
+	"github.com/botanikn/go-server/internal/application/service"
+	"github.com/botanikn/go-server/internal/entities"
+	"github.com/botanikn/go-server/internal/presentation/views"
 )
 
-type Handler struct {
-	noteService models.NoteService
+type NoteHandler struct {
+	noteService service.NoteService
 }
 
-func NewHandler(noteService models.NoteService) Handler {
-	return Handler{
+func NewNoteHandler(noteService service.NoteService) NoteHandler {
+	return NoteHandler{
 		noteService: noteService,
 	}
 }
 
-func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
+func (h *NoteHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	header := r.Header
 	contentLength := header.Get("Content-Length")
 	userAgent := header.Get("User-Agent")
@@ -47,7 +49,7 @@ func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-func (h *Handler) HandleNotes(w http.ResponseWriter, r *http.Request) {
+func (h *NoteHandler) HandleNotes(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.noteService.GetAllNotes()
 
@@ -69,7 +71,7 @@ func (h *Handler) HandleNotes(w http.ResponseWriter, r *http.Request) {
 	w.Write(formatedResult.Body)
 }
 
-func (h *Handler) HandleNotesXml(w http.ResponseWriter, r *http.Request) {
+func (h *NoteHandler) HandleNotesXml(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.noteService.GetAllNotes()
 
@@ -91,14 +93,14 @@ func (h *Handler) HandleNotesXml(w http.ResponseWriter, r *http.Request) {
 	w.Write(formatedResult.Body)
 }
 
-func (h *Handler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) {
+func (h *NoteHandler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid note ID", http.StatusBadRequest)
 		return
 	}
 
-	form := models.FindNoteByIdForm{
+	form := service.FindNoteByIdForm{
 		Id: id,
 	}
 
@@ -123,21 +125,21 @@ func (h *Handler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// func (h *Handler) HandleCreateNotes(w http.ResponseWriter, r *http.Request) {
-// 	var note entities.Note
+func (h *NoteHandler) HandleCreateNotes(w http.ResponseWriter, r *http.Request) {
+	var note entities.Note
 
-// 	if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
-// 		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
-// 		return
-// 	}
+	if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
+		http.Error(w, "Failed to decode request body", http.StatusBadRequest)
+		return
+	}
 
-// 	err := h.noteService.CreateNote(note)
+	err := h.noteService.CreateNote(note)
 
-// 	if err != nil {
-// 		http.Error(w, "Internal Error", http.StatusInternalServerError)
-// 		return
-// 	}
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
 
-// 	w.WriteHeader(http.StatusCreated)
-// 	fmt.Fprintf(w, "Note created")
-// }
+	w.WriteHeader(http.StatusCreated)
+	fmt.Fprintf(w, "Note created")
+}

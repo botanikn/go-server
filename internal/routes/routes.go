@@ -4,9 +4,10 @@ import (
 	"log"
 	"net/http"
 
-	dataaccess "github.com/botanikn/go-server/internal/data_access"
-	"github.com/botanikn/go-server/internal/handlers"
-	"github.com/botanikn/go-server/internal/models"
+	"github.com/botanikn/go-server/internal/application/service"
+	"github.com/botanikn/go-server/internal/infrastructure/repository"
+	cryptoService "github.com/botanikn/go-server/internal/infrastructure/service"
+	"github.com/botanikn/go-server/internal/presentation/handlers"
 	"github.com/botanikn/go-server/internal/storage"
 )
 
@@ -18,14 +19,34 @@ func RegisterRoutes() *http.ServeMux {
 		log.Fatalf("Failed to connect to the database: %v", err)
 	}
 
-	repository := dataaccess.NewNoteRepository(storage)
-	noteService := models.NewNoteService(&repository)
-	handler := handlers.NewHandler(noteService)
+	// Infrastructure layer
+	noteRepository := repository.NewNoteRepository(storage)
 
+	// Application layer
+	noteService := service.NewNoteService(&noteRepository)
+
+	// Presentation layer
+	handler := handlers.NewNoteHandler(noteService)
+
+	// Infrastructure layer for auth
+	authRepository := repository.NewAuthRepository(storage)
+	cryptoService := cryptoService.NewCryptoService()
+
+	// Application layer for auth
+	authService := service.NewAuthService(authRepository, cryptoService)
+
+	// Presentation layer for auth
+	authHandler := handlers.NewAuthHandler(authService)
+
+	// Auth routes
+	mux.HandleFunc("POST /register", authHandler.Register)
+	mux.HandleFunc("POST /login", authHandler.Login)
+
+	// Note routes
 	mux.HandleFunc("GET /health", handler.HandleHealth)
 	mux.HandleFunc("GET /notes", handler.HandleNotes)
 	mux.HandleFunc("GET /notesXml", handler.HandleNotesXml)
-	//mux.HandleFunc("POST /notes", handler.HandleCreateNotes)
+	mux.HandleFunc("POST /notes", handler.HandleCreateNotes)
 	mux.HandleFunc("GET /notes/{id}", handler.HandleGetNoteByID)
 
 	return mux
