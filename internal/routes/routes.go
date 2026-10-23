@@ -19,24 +19,20 @@ func RegisterRoutes() *http.ServeMux {
 		log.Fatalf("Failed to connect to the database: %v", err)
 	}
 
-	// Infrastructure layer
-	noteRepository := repository.NewNoteRepository(storage)
-
-	// Application layer
-	noteService := service.NewNoteService(&noteRepository)
-
-	// Presentation layer
-	handler := handlers.NewNoteHandler(noteService)
-
 	// Infrastructure layer for auth
 	authRepository := repository.NewAuthRepository(storage)
 	cryptoService := cryptoService.NewCryptoService()
-
 	// Application layer for auth
 	authService := service.NewAuthService(authRepository, cryptoService)
-
 	// Presentation layer for auth
 	authHandler := handlers.NewAuthHandler(authService)
+
+	// Infrastructure layer
+	noteRepository := repository.NewNoteRepository(storage)
+	// Application layer
+	noteService := service.NewNoteService(&noteRepository, authRepository)
+	// Presentation layer
+	handler := handlers.NewNoteHandler(noteService, authService)
 
 	// Auth routes
 	mux.HandleFunc("POST /register", authHandler.Register)
@@ -44,7 +40,8 @@ func RegisterRoutes() *http.ServeMux {
 
 	// Note routes
 	mux.HandleFunc("GET /health", handler.HandleHealth)
-	mux.HandleFunc("GET /notes", handler.HandleNotes)
+	mux.HandleFunc("GET /notesAll", handler.HandleNotes)
+	mux.HandleFunc("GET /notes", handler.HandleNotesByUserId)
 	mux.HandleFunc("GET /notesXml", handler.HandleNotesXml)
 	mux.HandleFunc("POST /notes", handler.HandleCreateNotes)
 	mux.HandleFunc("GET /notes/{id}", handler.HandleGetNoteByID)

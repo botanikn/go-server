@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
+	"github.com/botanikn/go-server/internal/application/errors"
 	"github.com/botanikn/go-server/internal/application/service"
 	"github.com/botanikn/go-server/internal/entities"
 	"github.com/botanikn/go-server/internal/presentation/views"
@@ -14,12 +16,19 @@ import (
 
 type NoteHandler struct {
 	noteService service.NoteService
+	authService service.AuthService
 }
 
-func NewNoteHandler(noteService service.NoteService) NoteHandler {
+func NewNoteHandler(noteService service.NoteService, authService service.AuthService) NoteHandler {
 	return NoteHandler{
 		noteService: noteService,
+		authService: authService,
 	}
+}
+
+type NotesResponse struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
 func (h *NoteHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
@@ -50,8 +59,24 @@ func (h *NoteHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NoteHandler) HandleNotes(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+	userId, err := h.authService.ValidateToken(token)
 
-	result, err := h.noteService.GetAllNotes()
+	if err != nil {
+		if err.Error() == "token has expired" {
+			http.Error(w, "Token has expired", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+		}
+		return
+	}
+
+	result, err := h.noteService.GetAllNotes(userId)
 
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
@@ -72,8 +97,24 @@ func (h *NoteHandler) HandleNotes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NoteHandler) HandleNotesXml(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+	userId, err := h.authService.ValidateToken(token)
 
-	result, err := h.noteService.GetAllNotes()
+	if err != nil {
+		if err.Error() == "token has expired" {
+			http.Error(w, "Token has expired", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+		}
+		return
+	}
+
+	result, err := h.noteService.GetAllNotes(userId)
 
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
@@ -93,7 +134,72 @@ func (h *NoteHandler) HandleNotesXml(w http.ResponseWriter, r *http.Request) {
 	w.Write(formatedResult.Body)
 }
 
+func (h *NoteHandler) HandleNotesByUserId(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+	userId, err := h.authService.ValidateToken(token)
+
+	if err != nil {
+		if err.Error() == "token has expired" {
+			http.Error(w, "Token has expired", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+		}
+		return
+	}
+
+	result, err := h.noteService.GetUsersNotes(userId)
+
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	response := []NotesResponse{}
+
+	for _, note := range result {
+		response = append(response, NotesResponse{
+			Title:   note.Title,
+			Content: note.Content,
+		})
+	}
+
+	formatedResult, err := views.FormatJson(response)
+
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", formatedResult.ContentType)
+	w.WriteHeader(http.StatusOK)
+
+	w.Write(formatedResult.Body)
+}
+
 func (h *NoteHandler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+
+	userId, err := h.authService.ValidateToken(token)
+
+	if err != nil {
+		if err.Error() == "token has expired" {
+			http.Error(w, "Token has expired", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+		}
+		return
+	}
+
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid note ID", http.StatusBadRequest)
@@ -101,7 +207,8 @@ func (h *NoteHandler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) 
 	}
 
 	form := service.FindNoteByIdForm{
-		Id: id,
+		NoteId: id,
+		UserId: userId,
 	}
 
 	result, err := h.noteService.GetNoteById(form)
@@ -126,6 +233,23 @@ func (h *NoteHandler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *NoteHandler) HandleCreateNotes(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+	userId, err := h.authService.ValidateToken(token)
+
+	if err != nil {
+		if err.Error() == errors.ErrExpiredToken {
+			http.Error(w, "Token has expired", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+		}
+		return
+	}
+
 	var note entities.Note
 
 	if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
@@ -133,9 +257,9 @@ func (h *NoteHandler) HandleCreateNotes(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err := h.noteService.CreateNote(note)
+	result := h.noteService.CreateNote(note, userId)
 
-	if err != nil {
+	if result != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
