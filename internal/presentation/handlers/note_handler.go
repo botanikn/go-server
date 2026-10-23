@@ -79,6 +79,10 @@ func (h *NoteHandler) HandleNotes(w http.ResponseWriter, r *http.Request) {
 	result, err := h.noteService.GetAllNotes(userId)
 
 	if err != nil {
+		if err.Error() == errors.ErrAccessDenied {
+			http.Error(w, "Access Denied", http.StatusUnauthorized)
+			return
+		}
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
@@ -144,7 +148,7 @@ func (h *NoteHandler) HandleNotesByUserId(w http.ResponseWriter, r *http.Request
 	userId, err := h.authService.ValidateToken(token)
 
 	if err != nil {
-		if err.Error() == "token has expired" {
+		if err.Error() == errors.ErrExpiredToken {
 			http.Error(w, "Token has expired", http.StatusUnauthorized)
 		} else {
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
@@ -192,7 +196,7 @@ func (h *NoteHandler) HandleGetNoteByID(w http.ResponseWriter, r *http.Request) 
 	userId, err := h.authService.ValidateToken(token)
 
 	if err != nil {
-		if err.Error() == "token has expired" {
+		if err.Error() == errors.ErrExpiredToken {
 			http.Error(w, "Token has expired", http.StatusUnauthorized)
 		} else {
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
