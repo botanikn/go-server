@@ -65,7 +65,7 @@ func (a *AuthService) Login(username string, password string) (string, error) {
 		return "", err
 	}
 
-	err = a.rep.SaveToken(7, token, int(time.Now().UTC().Add(10*time.Minute).Unix()))
+	err = a.rep.SaveToken(user.Id, token, int(time.Now().UTC().Add(10*time.Minute).Unix()))
 
 	return token, nil
 }
